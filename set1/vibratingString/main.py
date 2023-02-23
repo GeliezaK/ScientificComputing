@@ -49,7 +49,7 @@ if __name__ == '__main__':
     L = 1
     N = 200
     dt = 0.001
-    num_it = 500
+    num_it = 1000
     x = np.arange(0, L + L/N, L/N)
     initial_position = inp3(x)
     string = String(L, N, 1, init_position=initial_position)
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     plt.xlabel("x")
     plt.ylabel("Altitude")
     plt.title(f"Result after {num_it} iterations \ndt={dt}, N={N}")
-    plt.savefig("figures/inp3-colored-plot.png")
+    plt.savefig("figures/inp3-colored-plot-numit1000.png")
     plt.show()
 
 

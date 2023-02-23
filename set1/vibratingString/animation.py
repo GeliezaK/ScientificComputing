@@ -7,14 +7,16 @@ from main import String, inp1, inp2, inp3
 fig = plt.figure()
 ax = plt.axes(xlim=(0, 1), ylim=(-1, 1))
 line, = ax.plot([], [], lw=2)
+plt.xlabel("x")
+plt.ylabel("Amplitude")
 
 # Initialize animation data
 L = 1
-N = 200
+N = 500
 dt = 0.001
-num_it = 500
+num_it = 1000
 x = np.arange(0, L + L / N, L / N)
-initial_position = inp2(x)
+initial_position = inp3(x)
 string = String(L, N, 1, init_position=initial_position)
 
 
@@ -40,5 +42,5 @@ def animate(i):
 
 # Call the animator. blit=True means only re-draw the parts that have changed to save time
 anim = animation.FuncAnimation(fig, animate, init_func=init, frames=num_it, interval=10, blit=True)
-anim.save('string_inp2_animation.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
+anim.save('animations/string_inp3_animation.mp4', fps=30, extra_args=['-vcodec', 'libx264'])
 plt.show()
