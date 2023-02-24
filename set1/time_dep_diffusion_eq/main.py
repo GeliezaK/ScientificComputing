@@ -26,9 +26,22 @@ class diffusion:
 
         self.D = D
         self.dt = dt
+        # Rows that contain insulation material
+        self.insulation = []
 
         self.exact = []
+    
+    def set_insulation(self, rows):
+        """
+        Add insulation to specific rows.
 
+        Parameters
+        ----------
+        rows : list
+            list with indices of the rows that contain the insulatory material
+        """
+        self.insulation = rows
+        
     def update_c(self, space):
         """
         Update the concentration at every gridpoint.
@@ -46,6 +59,9 @@ class diffusion:
         # Copy the grid from previous timestep
         new_space = np.copy(space)
         for j in range(1, len(space) - 1):
+            D = self.D
+            if j in self.insulation:
+                D = 0.05
             for i in range(len(space)):
                 if i == 0:
                     factor = space[j, -2] + space[j, i+1] + space[j-1, i] + space[j+1, i] - 4 * space[j, i]
@@ -54,7 +70,7 @@ class diffusion:
                 else:
                     factor = space[j, i+1] + space[j, i-1] + space[j-1, i] + space[j+1, i] - 4 * space[j, i]
                 # update coordinate
-                new_space[j, i] = space[j, i] + (self.D * self.dt) * len(space)**2 * factor
+                new_space[j, i] = space[j, i] + (D * self.dt) * len(space)**2 * factor
 
         return new_space
 
