@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
+plt.style.use('seaborn-v0_8-darkgrid')
+mpl.rcParams['font.size'] = 16
 m = 100
 n = 100
 
@@ -95,7 +98,7 @@ if __name__ == '__main__':
     # Init candidate set:
     init_cluster_set = {(50, 99)}
     walker = RandomWalker(init_cluster_set)
-    walker.walk(700)
+    walker.walk(800)
     xs = [x[0] for x in walker.cluster_set]
     ys = [x[1] for x in walker.cluster_set]
     plt.xlim(100, 0)
@@ -104,5 +107,6 @@ if __name__ == '__main__':
     plt.xlabel("N")
     plt.title(f"Cluster size {len(walker.cluster_set)}")
     plt.plot(xs, ys, 'ko', markersize=1)
+    plt.savefig(f"figures/montecarlo-dla-{len(walker.cluster_set)}-size.png", dpi=300)
     plt.show()
 
