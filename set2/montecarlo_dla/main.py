@@ -6,12 +6,14 @@ plt.style.use('seaborn-v0_8-darkgrid')
 mpl.rcParams['font.size'] = 16
 m = 100
 n = 100
+ps = [0.1, 0.25, 0.5, 0.75, 0.9, 1]
 
 class RandomWalker:
 
-    def __init__(self, cluster_set):
+    def __init__(self, cluster_set, ps = 1):
         self.pos_i = np.random.randint(100)
         self.pos_j = 0
+        self.ps = ps
         self.cluster_set = cluster_set
         self.candidate_set = self.init_candidate_set()
 
@@ -41,30 +43,39 @@ class RandomWalker:
             if j < 0 or j > m - 1:
                 # Abort, set new positions and step again
                 self.reset()
+            elif (i, j) in self.cluster_set:
+                # Do not reset position, do not change position
+                continue
             elif (i, j) in self.candidate_set:
-                self.cluster_set.add((i, j))
-                self.candidate_set.remove((i, j))
-                # Add new neighbor cells to candidate set
-                neighbors = set()
-                if i == 0:
-                    neighbors.add((n - 1, j))
-                else:
-                    neighbors.add((i - 1, j))
-                if i == n - 1:
-                    neighbors.add((0, j))
-                else:
-                    neighbors.add((i + 1, j))
-                if not j == 0:
-                    neighbors.add((i, j - 1))
-                if not j == m - 1:
-                    neighbors.add((i, j + 1))
-                neighbor_candidates = neighbors.difference(self.cluster_set)
-                self.candidate_set = self.candidate_set.union(neighbor_candidates)
-                print(f"Cluster size: {len(self.cluster_set)}")
+                rand = np.random.random()
+                if rand < self.ps:
+                    # Hit only with probability ps
+                    self.cluster_set.add((i, j))
+                    self.candidate_set.remove((i, j))
+                    # Add new neighbor cells to candidate set
+                    neighbors = set()
+                    if i == 0:
+                        neighbors.add((n - 1, j))
+                    else:
+                        neighbors.add((i - 1, j))
+                    if i == n - 1:
+                        neighbors.add((0, j))
+                    else:
+                        neighbors.add((i + 1, j))
+                    if not j == 0:
+                        neighbors.add((i, j - 1))
+                    if not j == m - 1:
+                        neighbors.add((i, j + 1))
+                    neighbor_candidates = neighbors.difference(self.cluster_set)
+                    self.candidate_set = self.candidate_set.union(neighbor_candidates)
+                    print(f"Cluster size: {len(self.cluster_set)}")
 
-                # Init new walker
-                self.reset()
-                nhits -= 1
+                    # Init new walker
+                    self.reset()
+                    nhits -= 1
+                else:
+                    self.pos_i = i
+                    self.pos_j = j
             else:
                 self.pos_i = i
                 self.pos_j = j
@@ -96,17 +107,18 @@ class RandomWalker:
 
 if __name__ == '__main__':
     # Init candidate set:
-    init_cluster_set = {(50, 99)}
-    walker = RandomWalker(init_cluster_set)
-    walker.walk(800)
-    xs = [x[0] for x in walker.cluster_set]
-    ys = [x[1] for x in walker.cluster_set]
-    plt.xlim(100, 0)
-    plt.ylim(100, 0)
-    plt.ylabel("M")
-    plt.xlabel("N")
-    plt.title(f"Cluster size {len(walker.cluster_set)}")
-    plt.plot(xs, ys, 'ko', markersize=1)
-    plt.savefig(f"figures/montecarlo-dla-{len(walker.cluster_set)}-size.png", dpi=300)
-    plt.show()
+    for prob in ps:
+        init_cluster_set = {(50, 99)}
+        walker = RandomWalker(init_cluster_set, prob)
+        walker.walk(800)
+        xs = [x[0] for x in walker.cluster_set]
+        ys = [x[1] for x in walker.cluster_set]
+        plt.xlim(0, 100)
+        plt.ylim(100, 0)
+        plt.ylabel("M")
+        plt.xlabel("N")
+        plt.title(f"Cluster size {len(walker.cluster_set)}, " r"$p_s = $" f"{prob}")
+        plt.plot(xs, ys, 'ko', markersize=1)
+        plt.savefig(f"figures/montecarlo-dla-{len(walker.cluster_set)}-size-{prob}-ps.png", dpi=300)
+        plt.show()
 
