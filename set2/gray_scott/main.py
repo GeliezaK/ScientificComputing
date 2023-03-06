@@ -38,8 +38,13 @@ class GrayScottReactionDiffusion:
         self.grid = np.zeros((N, N, 2)) # u = 0, v = 1
         self.grid[:, :, 0] = np.full((N, N), 0.5) # u = 0.5 everywhere
         mid = math.floor(N/2)
-        self.grid[mid-1: mid+1, mid-1:mid+1, 1] = np.full((2, 2), 0.25)
-        self.prev_grid = np.copy(self.grid)
+        centerl = math.floor(N/8)
+        self.grid[mid-centerl: mid+centerl, mid-centerl:mid+centerl, 1] = np.full((2*centerl, 2*centerl), 0.25)
+        # Add noise +- 0.01 to the concentrations
+        for i in range(N):
+            for j in range(N):
+                self.grid[i, j, 0] = self.grid[i, j, 0] + self.grid[i, j, 0] * 0.01 * np.random.normal()
+                self.grid[i, j, 1] = self.grid[i, j, 1] + self.grid[i, j, 1] * 0.01 * np.random.normal()
         self.N = N
         self.Du = Du
         self.Dv = Dv
@@ -111,81 +116,48 @@ class GrayScottReactionDiffusion:
                     #     print(f"factor:{np.round(factor,3)}, D:{D}, diffusion_t:{np.round(diffusion_t,3)}, reaction_t:{np.round(reaction_t,3)}")
                     #     print(f"new values: chem {chem}:{np.round(new_grid[i, j, 1],3)}")
 
-        # Swap old and new grid
-        self.prev_grid = self.grid
+        # Update grid
         self.grid = new_grid
-
-    def store_data(self, filename):
-        """
-        Store the grid in a txt file.
-
-        Parameters
-        ----------
-        filename : str
-            name of the file to store the grid
-        """
-        f = open(filename, 'a')
-        np.savetxt(f, self.grid)
-        f.write('\n')
-        f.close()
-
-    def run(self, time, file=None):
-        """
-        Run simulation of diffusion process.
-
-        Parameters
-        ----------
-        time : float
-            length of the simulation
-        file : str, optional
-            name of the file to store the grid
-        """
-        t = 0
-        counter = 0
-
-        while np.round(t, 8) <= time:
-            # Calculate new concentrations
-            self.update_c()
-            # Store data (every 100 iterations)
-            if counter % 100 == 0 and file is not None:
-                self.store_data(file)
-
-            t += self.dt
-            counter += 1
 
 
 if __name__ == '__main__':
-    gray_scott = GrayScottReactionDiffusion(100)
-    nit = 101
+    Du = 0.01
+    Dv = 0.005
+    f = 0.035
+    k = 0.06
+    gray_scott = GrayScottReactionDiffusion(10, Du= Du, Dv= Dv, f=f, k = k)
+    print(np.round(gray_scott.grid[:, :, 0], 3))
+    print(np.round(gray_scott.grid[:, :, 1], 3))
+    nit = 201
     plt.figure(figsize=(15, 12))
     plt.subplots_adjust(hspace=0.5)
     plt.suptitle("Concentration of U", fontsize=18)
     count = 1
     for i in range(nit):
         gray_scott.update_c()
-        if i % 20 == 0:
+        if i % 40 == 0:
             # TODO: store data and plot afterwards
             ax = plt.subplot(2, 3, count)
-            sns.heatmap(gray_scott.grid[:, :, 0], vmax=1, vmin=0.49)
+            sns.heatmap(gray_scott.grid[:, :, 0])
             plt.title(f"{i} iterations")
             count += 1
-    plt.savefig(f"U-conc-{nit}.png", dpi=300)
+    plt.savefig(f"U-conc-{nit}-Du{Du}-Dv{Dv}-f{f}-k{k}.png", dpi=300)
     plt.show()
 
-
-    plt.figure(figsize=(15, 12))
-    plt.subplots_adjust(hspace=0.5)
-    plt.suptitle("Concentration of V", fontsize=18)
-    count = 1
-    for i in range(nit):
-        gray_scott.update_c()
-        if i % 20 == 0:
-            ax = plt.subplot(2, 3, count)
-            sns.heatmap(gray_scott.grid[:, :, 1], vmax=0.3, vmin=0.0)
-            plt.title(f"{i} iterations")
-            count += 1
-    plt.savefig(f"V-conc-{nit}.png", dpi=300)
-    plt.show()
+    #
+    # plt.figure(figsize=(15, 12))
+    # plt.subplots_adjust(hspace=0.5)
+    # plt.suptitle("Concentration of V", fontsize=18)
+    # count = 1
+    # for i in range(nit):
+    #     gray_scott.update_c()
+    #     if i % 20 == 0:
+    #         ax = plt.subplot(2, 3, count)
+    #         sns.heatmap(gray_scott.grid[:, :, 1], vmax=0.3, vmin=0.0)
+    #         plt.title(f"{i} iterations")
+    #         count += 1
+    # plt.savefig(f"V-conc-{nit}.png", dpi=300)
+    # plt.show()
 
 
 
