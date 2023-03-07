@@ -6,11 +6,12 @@ plt.style.use('seaborn-v0_8-darkgrid')
 mpl.rcParams['font.size'] = 16
 m = 100
 n = 100
-ps = [0.1, 0.25, 0.5, 0.75, 0.9, 1]
+ps = [0.05, 0.1, 0.25, 0.5, 0.75, 1]
+
 
 class RandomWalker:
 
-    def __init__(self, cluster_set, ps = 1):
+    def __init__(self, cluster_set, ps=1):
         self.pos_i = np.random.randint(100)
         self.pos_j = 0
         self.ps = ps
@@ -18,7 +19,8 @@ class RandomWalker:
         self.candidate_set = self.init_candidate_set()
 
     def init_candidate_set(self):
-        """Initialize candidate set at walker initialization"""
+        """Initialize candidate set to all neighbors of the current cluster_set. Assumes that the cluster_set is
+        placed at the bottom of the grid. """
         candidate_set = set()
         for (i, j) in self.cluster_set:
             neighbors = set()
@@ -30,6 +32,9 @@ class RandomWalker:
         return candidate_set
 
     def init_pos(self, i, j):
+        """
+        Set the positions of the walker.
+        """
         self.pos_i = i
         self.pos_j = j
 
@@ -37,6 +42,9 @@ class RandomWalker:
         self.init_pos(np.random.randint(100), 0)
 
     def walk(self, nhits):
+        """
+        Let the walker walk repeatedly until nhits points are added to the cluster.
+        """
         assert self.pos_j == 0
         while nhits > 0:
             i, j = self.step()
@@ -81,6 +89,10 @@ class RandomWalker:
                 self.pos_j = j
 
     def step(self):
+        """
+        Perform a single random step to the left, right, up or down. The position can exceed the grid boundaries
+        in the j-direction.
+        """
         direction = np.random.randint(4)
         newpos_i = self.pos_i
         newpos_j = self.pos_j
@@ -106,8 +118,12 @@ class RandomWalker:
 
 
 if __name__ == '__main__':
-    # Init candidate set:
+    count= 1
+    plt.figure(figsize=(16, 10))
+    plt.subplots_adjust(hspace=0.5)
+    plt.suptitle("Object at cluster size 800", fontsize=18)
     for prob in ps:
+        plt.subplot(2, 3, count)
         init_cluster_set = {(50, 99)}
         walker = RandomWalker(init_cluster_set, prob)
         walker.walk(800)
@@ -117,8 +133,8 @@ if __name__ == '__main__':
         plt.ylim(100, 0)
         plt.ylabel("M")
         plt.xlabel("N")
-        plt.title(f"Cluster size {len(walker.cluster_set)}, " r"$p_s = $" f"{prob}")
+        plt.title(r"$p_s = $" f"{prob}")
         plt.plot(xs, ys, 'ko', markersize=1)
-        plt.savefig(f"figures/montecarlo-dla-{len(walker.cluster_set)}-size-{prob}-ps.png", dpi=300)
-        plt.show()
-
+        count += 1
+    plt.savefig(f"figures/montecarlo-dla-{len(walker.cluster_set)}-size-all-ps-from-005.png", dpi=300)
+    plt.show()

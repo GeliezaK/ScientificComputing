@@ -11,9 +11,10 @@ import seaborn as sns
 plt.style.use('seaborn-v0_8-darkgrid')
 mpl.rcParams['font.size'] = 16
 
+
 class GrayScottReactionDiffusion:
 
-    def __init__(self, N = 100, Du=0.16, Dv = 0.08, f = 0.035, k = 0.06, dt=1, dx = 1):
+    def __init__(self, N=100, Du=0.16, Dv=0.08, f=0.035, k=0.06, dt=1, dx=1):
         """
         Initialize diffusion object.
 
@@ -35,16 +36,19 @@ class GrayScottReactionDiffusion:
             length of a timestep
         """
         # Construct the initial grid
-        self.grid = np.zeros((N, N, 2)) # u = 0, v = 1
-        self.grid[:, :, 0] = np.full((N, N), 0.5) # u = 0.5 everywhere
-        mid = math.floor(N/2)
-        centerl = math.floor(N/8)
-        self.grid[mid-centerl: mid+centerl, mid-centerl:mid+centerl, 1] = np.full((2*centerl, 2*centerl), 0.25)
-        # Add noise +- 0.01 to the concentrations
-        for i in range(N):
-            for j in range(N):
-                self.grid[i, j, 0] = self.grid[i, j, 0] + self.grid[i, j, 0] * 0.01 * np.random.normal()
-                self.grid[i, j, 1] = self.grid[i, j, 1] + self.grid[i, j, 1] * 0.01 * np.random.normal()
+        # u = 0.5 everywhere
+        self.U_grid = np.full((N + 2, N + 2), 0.5)  # two halo-rows for faster computation
+        # v = 0.25 in small center square and v=0 everywhere else
+        self.V_grid = np.zeros((N + 2, N + 2))
+        mid = math.floor(N / 2)
+        centerl = math.floor(N / 10)
+        self.V_grid[mid - centerl: mid + centerl, mid - centerl:mid + centerl] = np.full((2 * centerl, 2 * centerl),
+                                                                                         0.25)
+        # Add noise +- 1 % to the concentrations
+        self.U_grid[1:-1, 1:-1] = self.U_grid[1:-1, 1:-1] + self.U_grid[1:-1, 1:-1] * 0.01 * np.random.normal(size=(N, N))
+        self.V_grid[1:-1, 1:-1] = self.V_grid[1:-1, 1:-1] + self.V_grid[1:-1, 1:-1] * 0.01 * np.random.normal(size=(N, N))
+        self.update_ghost_cells(self.U_grid)
+        self.update_ghost_cells(self.V_grid)
         self.N = N
         self.Du = Du
         self.Dv = Dv
@@ -53,113 +57,69 @@ class GrayScottReactionDiffusion:
         self.dt = dt
         self.dx = dx
 
-    def noise(self, param):
+    def update_ghost_cells(self, grid):
+        grid[0, :] = grid[-2, :]
+        grid[-1, :] = grid[1, :]
+        grid[:, 0] = grid[:, -2]
+        grid[:, -1] = grid[:, 1]
+        return grid
+
+    def diffusion_factor(self, grid):
         """
-        Add dynamic noise to the parameter. Returns the altered parameter.
+        Compute the second order spatial derivative of the concentration in finite differences. Return the factor.
         """
-        noisy_param = param
-        if param >= 1:
-            noisy_param += np.sqrt(param) * np.random.normal()
-        else :
-            noisy_param += param ** 2 * np.random.normal()
-        return noisy_param
+        return (grid[:-2, 1:-1] +
+                grid[1:-1, :-2] - 4 * grid[1:-1, 1:-1] + grid[1:-1, 2:] +
+                +   grid[2:, 1:-1])
 
     def update_c(self):
         """
         Update the concentration at every gridpoint. Assume cyclic boundaries in both directions. Stores the new
         concentrations in self.grid and the previous concentrations in self.prev_grid.
         """
-        new_grid = np.zeros((self.N, self.N, 2))
-        for i in range(self.N):
-            # Determine neighbor rows
-            i_up = i - 1
-            i_down = i + 1
-            # First and last row are neighbors
-            if i == 0:
-                i_up = self.N -1
-            elif i == self.N - 1:
-                i_down = 0
+        # Extract true grids without ghost cells
+        U = self.U_grid[1:-1, 1:-1]
+        V = self.V_grid[1:-1, 1:-1]
 
-            for j in range(self.N):
-                # Determine neighbor columns
-                j_left = j - 1
-                j_right = j + 1
-                # First and last column are neighbors
-                if j == 0:
-                    j_left = self.N -1
-                elif j == self.N -1:
-                    j_right = 0
+        # Update whole grids in one go
+        diffusion_U = self.diffusion_factor(self.U_grid)
+        diffusion_V = self.diffusion_factor(self.V_grid)
 
-                for chem in range(2):
-                    # Calculate change through diffusion
-                    D = self.Du
-                    if chem == 1:
-                        D = self.Dv
-                    D = self.noise(D)
-                    factor = self.grid[i_down, j, chem] + self.grid[i_up, j, chem] + self.grid[i, j_left, chem] + \
-                             self.grid[i, j_right, chem] - 4 * self.grid[i, j, chem]
+        UVV = U * V * V
+        f = self.f + self.f * 0.01 * np.random.normal()
+        k = self.k + self.k * 0.01 * np.random.normal()
+        U += (self.Du * self.dt) / (self.dx ** 2) * diffusion_U - UVV + f * (1 - U)
+        V += (self.Dv * self.dt) / (self.dx ** 2) * diffusion_V + UVV - (f + k) * V
 
-                    diffusion_t = self.grid[i, j, chem] + (D * self.dt) / (self.dx ** 2) * factor
-                    # Calculate change through reaction
-                    u = self.grid[i, j, 0]
-                    v = self.grid[i, j, 1]
-                    f = self.noise(self.f)
-                    k = self.noise(self.k)
-                    if chem == 0:
-                        reaction_t = - u * v ** 2 + f * (1 - u)
-                    elif chem == 1:
-                        reaction_t = + u * v ** 2 - (f + k) * v
-                    # Update new concentration
-                    new_grid[i, j, chem] = diffusion_t + reaction_t
-                    # if i == 3 and j == 4:
-                    #     print(f"\nCell (3,4) chem {chem}:{np.round(self.grid[i,j,chem],5)}")
-                    #     print(f"factor:{np.round(factor,3)}, D:{D}, diffusion_t:{np.round(diffusion_t,3)}, reaction_t:{np.round(reaction_t,3)}")
-                    #     print(f"new values: chem {chem}:{np.round(new_grid[i, j, 1],3)}")
-
-        # Update grid
-        self.grid = new_grid
+        self.update_ghost_cells(self.U_grid)
+        self.update_ghost_cells(self.V_grid)
 
 
 if __name__ == '__main__':
-    Du = 0.01
-    Dv = 0.005
+    Du = 0.16
+    Dv = 0.08
     f = 0.035
     k = 0.06
-    gray_scott = GrayScottReactionDiffusion(10, Du= Du, Dv= Dv, f=f, k = k)
-    print(np.round(gray_scott.grid[:, :, 0], 3))
-    print(np.round(gray_scott.grid[:, :, 1], 3))
-    nit = 201
+    N = 300
+    chem = 1
+    chem_label = "V" if chem == 1 else "U"
+    gray_scott = GrayScottReactionDiffusion(N=N, Du=Du, Dv=Dv, f=f, k=k)
+    print(np.round(gray_scott.U_grid, 3))
+    print(np.round(gray_scott.V_grid, 3))
+    nit = 250 * 40 + 1
     plt.figure(figsize=(15, 12))
     plt.subplots_adjust(hspace=0.5)
-    plt.suptitle("Concentration of U", fontsize=18)
+    plt.suptitle(f"Concentration of {chem_label} \n" rf"$D_u = {Du}, D_v = {Dv}, f = {f}, k = {k}, t = {nit}, dt = 1$",
+                 fontsize=18)
     count = 1
     for i in range(nit):
         gray_scott.update_c()
-        if i % 40 == 0:
-            # TODO: store data and plot afterwards
+        if i % (50 * 40) == 0:
             ax = plt.subplot(2, 3, count)
-            sns.heatmap(gray_scott.grid[:, :, 0])
-            plt.title(f"{i} iterations")
+            sns.heatmap(gray_scott.V_grid)
+            plt.title(f"t = {i}")
             count += 1
-    plt.savefig(f"U-conc-{nit}-Du{Du}-Dv{Dv}-f{f}-k{k}.png", dpi=300)
+    plt.savefig(f"figures/{chem_label}-N{N}-it{nit}-Du{Du}-Dv{Dv}-f{f}-k{k}.png", dpi=300)
     plt.show()
-
-    #
-    # plt.figure(figsize=(15, 12))
-    # plt.subplots_adjust(hspace=0.5)
-    # plt.suptitle("Concentration of V", fontsize=18)
-    # count = 1
-    # for i in range(nit):
-    #     gray_scott.update_c()
-    #     if i % 20 == 0:
-    #         ax = plt.subplot(2, 3, count)
-    #         sns.heatmap(gray_scott.grid[:, :, 1], vmax=0.3, vmin=0.0)
-    #         plt.title(f"{i} iterations")
-    #         count += 1
-    # plt.savefig(f"V-conc-{nit}.png", dpi=300)
-    # plt.show()
-
-
-
-
-
+    print(np.round(gray_scott.U_grid, 3))
+    print(np.round(gray_scott.V_grid, 3))
