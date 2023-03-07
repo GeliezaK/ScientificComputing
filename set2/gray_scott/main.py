@@ -45,8 +45,10 @@ class GrayScottReactionDiffusion:
         self.V_grid[mid - centerl: mid + centerl, mid - centerl:mid + centerl] = np.full((2 * centerl, 2 * centerl),
                                                                                          0.25)
         # Add noise +- 1 % to the concentrations
-        self.U_grid[1:-1, 1:-1] = self.U_grid[1:-1, 1:-1] + self.U_grid[1:-1, 1:-1] * 0.01 * np.random.normal(size=(N, N))
-        self.V_grid[1:-1, 1:-1] = self.V_grid[1:-1, 1:-1] + self.V_grid[1:-1, 1:-1] * 0.01 * np.random.normal(size=(N, N))
+        self.U_grid[1:-1, 1:-1] = self.U_grid[1:-1, 1:-1] + self.U_grid[1:-1, 1:-1] * 0.01 * np.random.normal(
+            size=(N, N))
+        self.V_grid[1:-1, 1:-1] = self.V_grid[1:-1, 1:-1] + self.V_grid[1:-1, 1:-1] * 0.01 * np.random.normal(
+            size=(N, N))
         self.update_ghost_cells(self.U_grid)
         self.update_ghost_cells(self.V_grid)
         self.N = N
@@ -98,27 +100,34 @@ class GrayScottReactionDiffusion:
 if __name__ == '__main__':
     Du = 0.16
     Dv = 0.08
-    f = 0.035
-    k = 0.06
+    f = 0.032
+    k = 0.057
     N = 300
+    debug =0
+
+    plot_t_debug = [0, 10, 20, 40, 80, 160, 320, 640, 1280]
+    plot_t = [0, 100, 200, 500, 1000, 2000, 4000, 8000, 16000]
+    plot_its = plot_t_debug if debug else plot_t
     chem = 1
     chem_label = "V" if chem == 1 else "U"
     gray_scott = GrayScottReactionDiffusion(N=N, Du=Du, Dv=Dv, f=f, k=k)
-    print(np.round(gray_scott.U_grid, 3))
-    print(np.round(gray_scott.V_grid, 3))
-    nit = 250 * 40 + 1
-    plt.figure(figsize=(15, 12))
+
+    nit = plot_its[-1] + 1
+    fig, axn = plt.subplots(3, 3, sharex=True, sharey=True)
+    fig.tight_layout(rect=[0, 0, 0.9, 0.85])
+    cbar_ax = fig.add_axes([0.9, 0.1, 0.02, 0.7])
     plt.subplots_adjust(hspace=0.5)
-    plt.suptitle(f"Concentration of {chem_label} \n" rf"$D_u = {Du}, D_v = {Dv}, f = {f}, k = {k}, t = {nit}, dt = 1$",
+    plt.suptitle(f"Concentration of {chem_label} \n" rf"$D_u = {Du}, D_v = {Dv}, f = {f}, k = {k}$",
                  fontsize=18)
-    count = 1
+    count = 0
     for i in range(nit):
         gray_scott.update_c()
-        if i % (50 * 40) == 0:
-            ax = plt.subplot(2, 3, count)
-            sns.heatmap(gray_scott.V_grid)
-            plt.title(f"t = {i}")
+        if i in plot_its:
+            ax = axn.flat[count]
+            sns.heatmap(gray_scott.V_grid, ax = ax, cbar= count == 0, vmax=0.4, vmin=0, cbar_ax=None if count else cbar_ax)
+            ax.set_title(f"t = {i}", fontsize = 14)
             count += 1
+
     plt.savefig(f"figures/{chem_label}-N{N}-it{nit}-Du{Du}-Dv{Dv}-f{f}-k{k}.png", dpi=300)
     plt.show()
     print(np.round(gray_scott.U_grid, 3))
