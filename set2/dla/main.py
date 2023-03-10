@@ -66,15 +66,10 @@ class dla_model:
         """
         # Denominator in the equation for the growth probability
         candidates = np.round(candidates, 5)
+        candidates = np.array([np.maximum(i, 0) for i in candidates])
         total = np.sum(candidates ** self.eta)
-        result = str(total)
-        if result == 'nan':
-            print(candidates)
 
         # Calculate the probabilities of all the candidates
-        result = str(candidates[0] ** self.eta)
-        if result == 'nan':
-            print(candidates[0])
         cdf = [(candidates[0] ** self.eta) / total]
         for coord in candidates[1:]:
             p = (coord ** self.eta) / total
